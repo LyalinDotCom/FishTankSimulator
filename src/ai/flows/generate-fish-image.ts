@@ -21,7 +21,7 @@ export async function generateFishImage(): Promise<string> {
   const adj2 = getRandomElement(adjectives);
   const feature = getRandomElement(features);
 
-  const prompt = `Generate a photorealistic, studio-quality image of a single, unique ${adj1} ${adj2} ${type} with ${feature}. The fish should be facing sideways. The background MUST be completely transparent. The output format MUST be a PNG with a transparent alpha channel. Do not add any background color, shadows, or reflections.`;
+  const prompt = `Generate a photorealistic, studio-quality image of a single, unique ${adj1} ${adj2} ${type} with ${feature}. The fish MUST be facing to the right. The background MUST be completely transparent. The output format MUST be a PNG with a transparent alpha channel. Do not add any background color, shadows, or reflections.`;
 
   const { media } = await ai.generate({
     model: 'googleai/gemini-2.0-flash-preview-image-generation',
