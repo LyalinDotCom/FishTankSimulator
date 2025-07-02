@@ -68,7 +68,7 @@ export default function AquaVidaApp() {
         setStatusMessage("Adding your fish...");
         setStatusIsError(false);
         try {
-            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: dataUrl }]);
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: dataUrl, source: 'upload' }]);
             showStatus("Success! Your custom fish has been added to the tank.");
         } catch (error) {
             console.error("Failed to add image:", error);
@@ -84,7 +84,7 @@ export default function AquaVidaApp() {
         setStatusIsError(false);
         try {
             const newImage = await generateFishImage();
-            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: newImage }]);
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: newImage, source: 'ai' }]);
             showStatus("Success! A new AI-powered fish has been added.");
         } catch (error) {
             console.error("Failed to generate fish image:", error);
@@ -102,7 +102,18 @@ export default function AquaVidaApp() {
 
     const handlePhotoTaken = async (dataUrl: string) => {
         setShowCamera(false);
-        await handleImageUpload(dataUrl);
+        setIsUploading(true);
+        setStatusMessage("Adding your fish...");
+        setStatusIsError(false);
+        try {
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: dataUrl, source: 'camera' }]);
+            showStatus("Success! Your custom fish has been added to the tank.");
+        } catch (error) {
+            console.error("Failed to add image:", error);
+            showStatus("Image upload failed. Please try again.", true);
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (

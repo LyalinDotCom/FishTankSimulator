@@ -486,7 +486,10 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                     });
 
                     const aspectRatio = texture.image.width / texture.image.height;
-                    const fishHeight = 1.5;
+                    let fishHeight = 1.5;
+                    if (image.source === 'camera') {
+                        fishHeight *= 1.3;
+                    }
                     const fishWidth = fishHeight * aspectRatio;
 
                     const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight, 20, 5);

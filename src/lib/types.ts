@@ -31,4 +31,5 @@ export type GenerateFishBehaviorInput = {
 export type CustomFish = {
   id: string;
   url: string;
+  source: 'upload' | 'camera' | 'ai';
 };
