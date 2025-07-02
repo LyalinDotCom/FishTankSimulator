@@ -119,7 +119,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
         let frameId: number;
         const animate = () => {
             frameId = requestAnimationFrame(animate);
-            const delta = clock.getDelta();
+            const delta = Math.min(clock.getDelta(), 0.05);
             const elapsedTime = clock.getElapsedTime();
             const currentCamera = cameraRef.current;
             if (!currentCamera) return;
