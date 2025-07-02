@@ -1,3 +1,11 @@
+export type FishShape = {
+  bodyShape: 'ellipsoid' | 'box';
+  bodyDimensions: { x: number; y: number; z: number };
+  tailShape: 'cone' | 'triangle';
+  tailDimensions: { x: number; y: number; z: number };
+  dorsalFin: boolean;
+};
+
 export type FishBehavior = {
   id: number;
   startPosition: {
@@ -6,6 +14,7 @@ export type FishBehavior = {
     z: number;
   };
   swimmingPattern: string;
+  shape?: FishShape;
 };
 
 export type GenerateFishBehaviorOutput = FishBehavior[];

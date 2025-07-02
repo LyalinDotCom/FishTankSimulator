@@ -9,6 +9,22 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { GenerateFishBehaviorInput, GenerateFishBehaviorOutput } from '@/lib/types';
 
+const FishShapeSchema = z.object({
+  bodyShape: z.enum(['ellipsoid', 'box']).describe("The basic shape of the fish's body."),
+  bodyDimensions: z.object({
+    x: z.number().describe("The width of the fish body."),
+    y: z.number().describe("The height of the fish body."),
+    z: z.number().describe("The length of the fish body."),
+  }).describe("The dimensions of the fish body's bounding box. Suggested values for x, y, z are between 0.2 and 0.8."),
+  tailShape: z.enum(['cone', 'triangle']).describe("The shape of the fish's tail. A 'triangle' is a flat fin."),
+  tailDimensions: z.object({
+    x: z.number().describe("The width of the fish tail."),
+    y: z.number().describe("The height of the fish tail."),
+    z: z.number().describe("The length/depth of the fish tail."),
+  }).describe("The dimensions for the tail. Suggested values for x, y, z are between 0.1 and 0.4."),
+  dorsalFin: z.boolean().describe('Whether the fish has a dorsal fin on top.'),
+});
+
 const FishBehaviorSchema = z.object({
   id: z.number().describe('A unique numeric ID for the fish.'),
   startPosition: z.object({
@@ -17,6 +33,7 @@ const FishBehaviorSchema = z.object({
     z: z.number().describe('The starting Z coordinate.'),
   }),
   swimmingPattern: z.string().describe("The swimming pattern of the fish. Can be one of: 'straight', 'lazy_s', 'circle', 'erratic'."),
+  shape: FishShapeSchema.describe("The physical shape and features of the fish."),
 });
 
 const GenerateFishBehaviorInputSchema = z.object({
@@ -41,18 +58,26 @@ const prompt = ai.definePrompt({
     name: 'generateFishBehaviorPrompt',
     input: { schema: PromptInputSchema },
     output: { schema: GenerateFishBehaviorOutputSchema },
-    prompt: `You are a marine biologist designing a simulation for a virtual fish tank.
-Your task is to generate distinct behaviors for {{fishCount}} fish.
+    prompt: `You are a marine biologist and 3D artist designing a simulation for a virtual fish tank.
+Your task is to generate distinct behaviors and appearances for {{fishCount}} fish.
 
 The valid coordinate ranges are:
 - x: from -{{halfWidth}} to {{halfWidth}}
 - y: from -{{halfHeight}} to {{halfHeight}}
 - z: from -{{halfDepth}} to {{halfDepth}}
 
-For each fish, provide a unique ID (from 0 to {{maxId}}) and a starting position (x, y, z) that is safely inside the tank boundaries (e.g., not directly on the edge, leave some margin like 10%).
-Also, assign a swimming pattern from the following options: 'straight', 'lazy_s', 'circle', 'erratic'.
+For each fish, provide:
+1. A unique ID (from 0 to {{maxId}}).
+2. A starting position (x, y, z) that is safely inside the tank boundaries.
+3. A swimming pattern from the following options: 'straight', 'lazy_s', 'circle', 'erratic'.
+4. A unique physical shape. Be creative and generate a wide variety of fish. Define the shape using these parameters:
+   - bodyShape: Can be 'ellipsoid' or 'box'.
+   - bodyDimensions: An object with x, y, z dimensions for the body's bounding box. Suggested values for x, y, z are between 0.2 and 0.8.
+   - tailShape: Can be 'cone' or 'triangle'. A 'triangle' will be a flat fin.
+   - tailDimensions: An object with x, y, z dimensions for the tail. Suggested values for x, y, z are between 0.1 and 0.4.
+   - dorsalFin: A boolean (true/false) to add a dorsal fin.
 
-Generate a JSON array of {{fishCount}} fish behavior objects. Ensure the output is a valid JSON array matching the requested schema.
+Generate a JSON array of {{fishCount}} fish objects. Ensure the output is a valid JSON array matching the requested schema.
 `,
 });
 

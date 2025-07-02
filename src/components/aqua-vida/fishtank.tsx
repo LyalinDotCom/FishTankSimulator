@@ -3,9 +3,10 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { GenerateFishBehaviorOutput } from '@/lib/types';
+import type { GenerateFishBehaviorOutput, FishShape, FishBehavior } from '@/lib/types';
 
 type FishObject = {
+    id: number;
     group: THREE.Group;
     velocity: THREE.Vector3;
     bob: number;
@@ -20,6 +21,84 @@ interface FishTankProps {
     behaviors: GenerateFishBehaviorOutput;
     tankDimensions: { width: number; height: number; depth: number; };
     customFishImages: string[];
+}
+
+function createProceduralFishMesh(material: THREE.MeshStandardMaterial): THREE.Group {
+    const group = new THREE.Group();
+    const bodyGeom = new THREE.SphereGeometry(0.2, 16, 8);
+    const tailGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
+
+    const body = new THREE.Mesh(bodyGeom, material);
+    body.name = "body";
+    body.castShadow = true;
+    
+    const tail = new THREE.Mesh(tailGeom, material);
+    tail.name = "tail";
+    tail.position.z = -0.3;
+    tail.rotation.x = Math.PI / 2;
+
+    group.add(body);
+    group.add(tail);
+    (group as any).isProcedural = true;
+    return group;
+}
+
+function createAiFishMesh(shape: FishShape, material: THREE.MeshStandardMaterial): THREE.Group {
+    const group = new THREE.Group();
+
+    // Body
+    let bodyGeom;
+    const { bodyDimensions, bodyShape, tailDimensions, tailShape, dorsalFin } = shape;
+    if (bodyShape === 'ellipsoid') {
+        bodyGeom = new THREE.SphereGeometry(0.5, 16, 8);
+        bodyGeom.scale(bodyDimensions.x, bodyDimensions.y, bodyDimensions.z);
+    } else { // 'box'
+        bodyGeom = new THREE.BoxGeometry(bodyDimensions.x, bodyDimensions.y, bodyDimensions.z);
+    }
+    const body = new THREE.Mesh(bodyGeom, material);
+    body.name = "body";
+    body.castShadow = true;
+    group.add(body);
+    
+    // Tail
+    let tailGeom;
+    if (tailShape === 'cone') {
+        tailGeom = new THREE.ConeGeometry(tailDimensions.x / 2, tailDimensions.z, 8);
+    } else { // 'triangle'
+        tailGeom = new THREE.PlaneGeometry(tailDimensions.x, tailDimensions.y);
+    }
+    const tail = new THREE.Mesh(tailGeom, material);
+    tail.name = "tail";
+    tail.position.z = -(bodyDimensions.z / 2 + tailDimensions.z / 2);
+    if (tailShape === 'cone') {
+        tail.rotation.x = Math.PI / 2;
+    }
+    group.add(tail);
+
+    // Dorsal Fin
+    if (dorsalFin) {
+        const finGeom = new THREE.PlaneGeometry(0.2, 0.2); 
+        const dorsalFin = new THREE.Mesh(finGeom, material);
+        dorsalFin.name = "dorsalFin";
+        dorsalFin.position.y = (bodyDimensions.y / 2);
+        dorsalFin.rotation.x = -Math.PI / 4;
+        group.add(dorsalFin);
+    }
+    (group as any).isAi = true;
+    return group;
+}
+
+function disposeGroup(group: THREE.Group) {
+    group.traverse(child => {
+        if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+                child.material.forEach(material => material.dispose());
+            } else if (child.material) {
+                child.material.dispose();
+            }
+        }
+    });
 }
 
 export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTankProps) {
@@ -162,7 +241,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 } else {
                     fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
                     
-                    const tail = fish.group.children[1];
+                    const tail = fish.group.getObjectByName('tail');
                     if (tail) {
                         tail.rotation.y = Math.sin(elapsedTime * 8) * 0.5;
                     }
@@ -207,68 +286,59 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
     useEffect(() => {
         const scene = sceneRef.current;
         if (!scene || !behaviors) return;
-        
-        // Clear old procedural fish
-        const proceduralFish = fishRef.current.filter(fish => !(fish.group as any).isCustom);
-        proceduralFish.forEach(fish => {
-            scene.remove(fish.group);
-            fish.group.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    child.geometry.dispose();
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(material => material.dispose());
-                    } else if (child.material) {
-                        child.material.dispose();
-                    }
-                }
-            });
-        });
-        fishRef.current = fishRef.current.filter(fish => (fish.group as any).isCustom);
 
-        // Add new procedural fish
-        behaviors.forEach(behavior => {
-            const bodyGeom = new THREE.SphereGeometry(0.2, 16, 8);
-            const tailGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
+        const existingFishIds = fishRef.current.map(f => f.id);
+        const newBehaviorIds = behaviors.map(b => b.id);
+
+        // 1. Remove fish that are no longer in the behaviors array
+        const fishToRemove = fishRef.current.filter(f => !newBehaviorIds.includes(f.id));
+        fishToRemove.forEach(fish => {
+            scene.remove(fish.group);
+            disposeGroup(fish.group);
+        });
+        fishRef.current = fishRef.current.filter(f => newBehaviorIds.includes(f.id));
+
+        // 2. Add new fish that are not in the scene yet
+        const behaviorsToAdd = behaviors.filter(b => !existingFishIds.includes(b.id));
+
+        behaviorsToAdd.forEach(behavior => {
             const fishMaterial = new THREE.MeshStandardMaterial({
                 color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
                 roughness: 0.4,
                 metalness: 0.2
             });
 
-            const body = new THREE.Mesh(bodyGeom, fishMaterial);
-            body.castShadow = true;
-            
-            const tail = new THREE.Mesh(tailGeom, fishMaterial);
-            tail.position.z = -0.3;
-            tail.rotation.x = Math.PI / 2;
+            const group = behavior.shape 
+                ? createAiFishMesh(behavior.shape, fishMaterial)
+                : createProceduralFishMesh(fishMaterial);
 
-            const group = new THREE.Group();
-            group.add(body);
-            group.add(tail);
             group.position.set(behavior.startPosition.x, behavior.startPosition.y, behavior.startPosition.z);
             scene.add(group);
 
             fishRef.current.push({
+                id: behavior.id,
                 group,
                 velocity: new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize().multiplyScalar(1.5),
                 bob: Math.random() * Math.PI * 2,
             });
         });
+
     }, [behaviors]);
 
     useEffect(() => {
         const scene = sceneRef.current;
         if (!scene) return;
 
-        const existingCustomFishCount = fishRef.current.filter(f => (f.group as any).isCustom).length;
-        if (customFishImages.length <= existingCustomFishCount) {
+        // This handles custom uploaded fish images
+        const customFishInScene = fishRef.current.filter(f => (f.group as any).isCustom);
+        if (customFishImages.length <= customFishInScene.length) {
             return;
         }
 
-        const newImages = customFishImages.slice(existingCustomFishCount);
+        const newImages = customFishImages.slice(customFishInScene.length);
         const textureLoader = new THREE.TextureLoader();
 
-        newImages.forEach(imageUrl => {
+        newImages.forEach((imageUrl, index) => {
             textureLoader.load(imageUrl, (texture) => {
                 const material = new THREE.MeshBasicMaterial({
                     map: texture,
@@ -295,6 +365,8 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 scene.add(group);
 
                 fishRef.current.push({
+                    // Use a large negative number for custom fish IDs to avoid collision with behavior-based IDs
+                    id: -(index + 1),
                     group,
                     velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
                     bob: Math.random() * Math.PI * 2,
