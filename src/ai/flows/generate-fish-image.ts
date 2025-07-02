@@ -7,7 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 
-const PROMPT = `Generate a photorealistic image of a unique, colorful, tropical fish. The fish should be facing sideways. The background must be fully transparent. The output must be a PNG image with a transparent background.`;
+const PROMPT = `Generate a photorealistic image of a unique, colorful, tropical fish facing sideways. The background MUST be completely transparent. Output a PNG image with an alpha channel for transparency. Do not include any background color.`;
 
 export async function generateFishImage(): Promise<string> {
   const { media } = await ai.generate({
