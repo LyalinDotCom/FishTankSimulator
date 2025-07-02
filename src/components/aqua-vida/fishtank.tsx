@@ -219,25 +219,35 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
             const halfW = tankDimensions.width / 2 - 0.5;
             const halfH = tankDimensions.height / 2 - 0.5;
             const halfD = tankDimensions.depth / 2 - 0.5;
+            const currentCamera = cameraRef.current;
             
             fishRef.current.forEach(fish => {
-                // Movement
+                // Common physics for all fish
                 fish.group.position.add(fish.velocity.clone().multiplyScalar(delta));
                 fish.group.position.y += Math.sin(elapsedTime * 2 + fish.bob) * 0.005;
 
-                // Tank boundaries
+                // Common boundary checks
                 if (fish.group.position.x > halfW || fish.group.position.x < -halfW) fish.velocity.x *= -1;
                 if (fish.group.position.y > halfH || fish.group.position.y < -halfH) fish.velocity.y *= -1;
                 if (fish.group.position.z > halfD || fish.group.position.z < -halfD) fish.velocity.z *= -1;
-
-                fish.velocity.add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(0.1));
-                fish.velocity.clampLength(1, 2);
-
-                fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
                 
-                if ((fish.group as any).isCustom) {
-                     const plane = fish.group.children[0] as THREE.Mesh;
-                     if (plane && plane.geometry) {
+                if ((fish.group as any).isCustom && currentCamera) {
+                    // Logic for custom 2D fish
+                    
+                    // Constrain velocity to be mostly horizontal
+                    fish.velocity.y *= 0.98; // Dampen vertical movement
+                    fish.velocity.z *= 0.98; // Dampen depth movement
+                    fish.velocity.x += (Math.random() - 0.5) * 0.1; // Add horizontal variation
+                    fish.velocity.clampLength(1, 1.5);
+                    
+                    // Make the fish's group face the camera
+                    fish.group.lookAt(currentCamera.position);
+
+                    const plane = fish.group.children[0] as THREE.Mesh;
+                    if (plane && plane.geometry) {
+                         // Flip the fish plane based on its direction
+                         plane.scale.x = fish.velocity.x >= 0 ? 1 : -1;
+
                          const geometry = plane.geometry as THREE.PlaneGeometry;
                          const originalPositions = geometry.userData.originalPositions;
                          const positions = geometry.attributes.position;
@@ -247,16 +257,21 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                              for (let i = 0; i < positions.count; i++) {
                                  const originalX = originalPositions[i * 3];
                                  const originalY = originalPositions[i * 3 + 1];
-
                                  const bendFactor = (originalX + fishWidth / 2) / fishWidth;
                                  const wave = Math.sin(originalX * 0.5 + elapsedTime * 10) * 0.3 * bendFactor;
-                                 
                                  positions.setY(i, originalY + wave);
                              }
                              positions.needsUpdate = true;
                          }
                      }
                 } else {
+                    // Logic for AI-generated and procedural 3D fish
+                    fish.velocity.add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(0.1));
+                    fish.velocity.clampLength(1, 2);
+
+                    // Rotate the 3D model to face its direction of movement
+                    fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
+                
                     const tail = fish.group.getObjectByName('tail');
                     if (tail) {
                         tail.rotation.y = Math.sin(elapsedTime * 8) * 0.5;
@@ -264,7 +279,6 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 }
             });
             
-            const currentCamera = cameraRef.current;
             if (currentCamera && scene) {
                 renderer.render(scene, currentCamera);
             }
