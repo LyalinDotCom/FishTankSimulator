@@ -410,9 +410,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 textureLoader.load(image.url, (texture) => {
                     const material = new THREE.MeshBasicMaterial({
                         map: texture,
-                        transparent: true,
                         side: THREE.DoubleSide,
-                        alphaTest: 0.1,
                     });
 
                     const aspectRatio = texture.image.width / texture.image.height;

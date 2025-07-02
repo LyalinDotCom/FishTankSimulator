@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { GenerateFishBehaviorOutput, FishBehavior, CustomFish } from '@/lib/types';
 import { generateFishImage } from '@/ai/flows/generate-fish-image';
-import { removeImageBackground } from '@/ai/flows/remove-background-flow';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Controls } from './controls';
@@ -66,15 +65,14 @@ export default function AquaVidaApp() {
 
     const handleImageUpload = async (dataUrl: string) => {
         setIsUploading(true);
-        setStatusMessage("Processing your fish...");
+        setStatusMessage("Adding your fish...");
         setStatusIsError(false);
         try {
-            const processedImage = await removeImageBackground(dataUrl);
-            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: processedImage }]);
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: dataUrl }]);
             showStatus("Success! Your custom fish has been added to the tank.");
         } catch (error) {
-            console.error("Failed to process image:", error);
-            showStatus("Image Processing Failed. Please try another one.", true);
+            console.error("Failed to add image:", error);
+            showStatus("Image upload failed. Please try again.", true);
         } finally {
             setIsUploading(false);
         }

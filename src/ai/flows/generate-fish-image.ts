@@ -1,13 +1,13 @@
 'use server';
 /**
- * @fileOverview A flow for generating an image of a fish with a transparent background.
+ * @fileOverview A flow for generating an image of a fish.
  *
  * - generateFishImage - A function that returns a data URI of a newly generated fish image.
  */
 
 import { ai } from '@/ai/genkit';
 
-const PROMPT = `Generate a photorealistic image of a unique, colorful, tropical fish facing sideways. The background MUST be completely transparent. Output a PNG image with an alpha channel for transparency. Do not include any background color.`;
+const PROMPT = `Generate a photorealistic image of a unique, colorful, tropical fish facing sideways.`;
 
 export async function generateFishImage(): Promise<string> {
   const { media } = await ai.generate({
