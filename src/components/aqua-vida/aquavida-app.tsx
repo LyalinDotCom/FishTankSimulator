@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import type { GenerateFishBehaviorOutput, FishBehavior, CustomFish } from '@/lib/types';
 import { generateFishImage } from '@/ai/flows/generate-fish-image';
 import { removeImageBackground } from '@/ai/flows/remove-background-flow';
-import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
 
 import { Controls } from './controls';
@@ -22,7 +21,8 @@ export default function AquaVidaApp() {
     const [customFishImages, setCustomFishImages] = useState<CustomFish[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const { toast } = useToast();
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [statusIsError, setStatusIsError] = useState(false);
 
     const generateLocalBehaviors = (count: number, dimensions: typeof TANK_DIMENSIONS): GenerateFishBehaviorOutput => {
         const behaviors: FishBehavior[] = [];
@@ -46,6 +46,15 @@ export default function AquaVidaApp() {
          // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const showStatus = (message: string, isError = false, duration = 4000) => {
+        setStatusMessage(message);
+        setStatusIsError(isError);
+        setTimeout(() => {
+            setStatusMessage(null);
+            setStatusIsError(false);
+        }, duration);
+    };
+
     const handleFishCountChange = (count: number) => {
         setFishCount(count);
         const proceduralFish = generateLocalBehaviors(count, TANK_DIMENSIONS);
@@ -54,24 +63,15 @@ export default function AquaVidaApp() {
 
     const handleImageUpload = async (dataUrl: string) => {
         setIsUploading(true);
-        toast({
-            title: "Processing your fish...",
-            description: "The AI is removing the background from your image.",
-        });
+        setStatusMessage("Processing your fish...");
+        setStatusIsError(false);
         try {
             const processedImage = await removeImageBackground(dataUrl);
             setCustomFishImages(prev => [...prev, { id: uuidv4(), url: processedImage }]);
-            toast({
-                title: "Success!",
-                description: "Your custom fish has been added to the tank.",
-            });
+            showStatus("Success! Your custom fish has been added to the tank.");
         } catch (error) {
             console.error("Failed to process image:", error);
-            toast({
-                variant: "destructive",
-                title: "Image Processing Failed",
-                description: "There was a problem processing your image. Please try another one.",
-            });
+            showStatus("Image Processing Failed. Please try another one.", true);
         } finally {
             setIsUploading(false);
         }
@@ -79,25 +79,15 @@ export default function AquaVidaApp() {
     
     const handleGenerate = async () => {
         setIsLoading(true);
-        toast({
-            title: "Generating new AI fish...",
-            description: "The AI is creating a new fish image. Please wait.",
-        });
+        setStatusMessage("Generating new AI fish...");
+        setStatusIsError(false);
         try {
             const newImage = await generateFishImage();
             setCustomFishImages(prev => [...prev, { id: uuidv4(), url: newImage }]);
-
-            toast({
-                title: "Success!",
-                description: "A new AI-powered fish has been added to the tank.",
-            });
+            showStatus("Success! A new AI-powered fish has been added.");
         } catch (error) {
             console.error("Failed to generate fish image:", error);
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: "There was a problem with the AI generation. Please check your API key and try again.",
-            });
+            showStatus("AI Generation Failed. Please check your API key and try again.", true);
         } finally {
             setIsLoading(false);
         }
@@ -106,10 +96,7 @@ export default function AquaVidaApp() {
     const handleReset = () => {
         setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
         setCustomFishImages([]);
-        toast({
-            title: "Simulation Reset",
-            description: "The fish tank has been reset to its default state.",
-        });
+        showStatus("Simulation Reset. The tank has been returned to its default state.");
     };
 
     return (
@@ -132,6 +119,8 @@ export default function AquaVidaApp() {
                 onReset={handleReset}
                 isLoading={isLoading}
                 isUploading={isUploading}
+                statusMessage={statusMessage}
+                statusIsError={statusIsError}
             />
         </div>
     );

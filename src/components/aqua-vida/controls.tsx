@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface ControlsProps {
     fishCount: number;
@@ -16,9 +17,21 @@ interface ControlsProps {
     onReset: () => void;
     isLoading: boolean;
     isUploading: boolean;
+    statusMessage: string | null;
+    statusIsError: boolean;
 }
 
-export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, onReset, isLoading, isUploading }: ControlsProps) {
+export function Controls({ 
+    fishCount, 
+    onFishCountChange, 
+    onImageUpload, 
+    onGenerate, 
+    onReset, 
+    isLoading, 
+    isUploading, 
+    statusMessage,
+    statusIsError
+}: ControlsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUploadClick = () => {
@@ -39,43 +52,55 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
     };
 
     return (
-        <div className="z-20 flex flex-wrap items-center justify-center gap-6 p-4 border-t bg-card/80 backdrop-blur-sm">
-            <div className="flex items-center gap-4">
-                 <div className="space-y-2 w-48">
-                    <Label htmlFor="fish-count">Procedural Fish: <span className="font-bold text-primary-foreground">{fishCount}</span></Label>
-                    <Slider
-                        id="fish-count"
-                        min={1}
-                        max={50}
-                        step={1}
-                        value={[fishCount]}
-                        onValueChange={(value) => onFishCountChange(value[0])}
-                        disabled={isLoading || isUploading}
-                    />
-                </div>
-                <Button onClick={onReset} variant="outline" disabled={isLoading || isUploading}>Reset</Button>
+        <div className="z-20 border-t bg-card/80 backdrop-blur-sm">
+             <div className="h-8 flex items-center justify-center text-center px-4">
+                {statusMessage && (
+                    <p className={cn(
+                        "text-sm font-medium",
+                        statusIsError ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                        {statusMessage}
+                    </p>
+                )}
             </div>
-           
-            <Separator orientation="vertical" className="h-10" />
-
-            <div className="flex items-center gap-4">
-                <div className="flex flex-col gap-2">
-                     <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
-                        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isUploading ? 'Processing...' : 'Upload Your Fish'}
-                    </Button>
-                    <Input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleFileChange}
-                        accept="image/png, image/jpeg"
-                    />
+            <div className="flex flex-wrap items-center justify-center gap-6 p-4 pt-0">
+                <div className="flex items-center gap-4">
+                    <div className="space-y-2 w-48">
+                        <Label htmlFor="fish-count">Procedural Fish: <span className="font-bold text-primary-foreground">{fishCount}</span></Label>
+                        <Slider
+                            id="fish-count"
+                            min={1}
+                            max={50}
+                            step={1}
+                            value={[fishCount]}
+                            onValueChange={(value) => onFishCountChange(value[0])}
+                            disabled={isLoading || isUploading}
+                        />
+                    </div>
+                    <Button onClick={onReset} variant="outline" disabled={isLoading || isUploading}>Reset</Button>
                 </div>
-                 <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Generate AI Fish
-                </Button>
+            
+                <Separator orientation="vertical" className="h-10" />
+
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-2">
+                        <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
+                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isUploading ? 'Processing...' : 'Upload Your Fish'}
+                        </Button>
+                        <Input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleFileChange}
+                            accept="image/png, image/jpeg"
+                        />
+                    </div>
+                    <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Generate AI Fish
+                    </Button>
+                </div>
             </div>
         </div>
     );
