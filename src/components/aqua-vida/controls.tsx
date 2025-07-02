@@ -7,10 +7,9 @@ import { Slider } from '@/components/ui/slider';
 interface ControlsProps {
     fishCount: number;
     onFishCountChange: (count: number) => void;
-    isLoading: boolean;
 }
 
-export function Controls({ fishCount, onFishCountChange, isLoading }: ControlsProps) {
+export function Controls({ fishCount, onFishCountChange }: ControlsProps) {
     return (
         <Card className="absolute top-4 right-4 z-20 w-80 shadow-lg bg-card/80 backdrop-blur-sm border-primary/20">
             <CardHeader>
@@ -27,7 +26,6 @@ export function Controls({ fishCount, onFishCountChange, isLoading }: ControlsPr
                         step={1}
                         value={[fishCount]}
                         onValueChange={(value) => onFishCountChange(value[0])}
-                        disabled={isLoading}
                     />
                 </div>
             </CardContent>
