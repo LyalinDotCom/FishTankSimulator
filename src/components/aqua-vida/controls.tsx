@@ -15,9 +15,10 @@ interface ControlsProps {
     onImageUpload: (dataUrl: string) => void;
     onGenerate: () => void;
     isLoading: boolean;
+    isUploading: boolean;
 }
 
-export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, isLoading }: ControlsProps) {
+export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, isLoading, isUploading }: ControlsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUploadClick = () => {
@@ -45,7 +46,7 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-3">
-                    <Label htmlFor="fish-count">Fish Count: <span className="font-bold text-primary-foreground">{fishCount}</span></Label>
+                    <Label htmlFor="fish-count">Procedural Fish: <span className="font-bold text-primary-foreground">{fishCount}</span></Label>
                     <Slider
                         id="fish-count"
                         min={1}
@@ -53,23 +54,27 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
                         step={1}
                         value={[fishCount]}
                         onValueChange={(value) => onFishCountChange(value[0])}
+                        disabled={isLoading}
                     />
                 </div>
                 <div className="space-y-3">
                     <Label>Add Your Fish</Label>
-                    <Button onClick={handleUploadClick} variant="outline" className="w-full">Upload Image</Button>
+                    <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
+                        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isUploading ? 'Processing...' : 'Upload Image'}
+                    </Button>
                     <Input
                         type="file"
                         ref={fileInputRef}
                         className="hidden"
                         onChange={handleFileChange}
-                        accept="image/png, image/jpeg, image/gif"
+                        accept="image/png, image/jpeg"
                     />
                 </div>
                 <Separator />
                 <div className="space-y-3">
                     <Label>AI Generation</Label>
-                     <Button onClick={onGenerate} disabled={isLoading} className="w-full">
+                     <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Generate with AI
                     </Button>

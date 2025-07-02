@@ -188,7 +188,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 (Math.random() - 0.5) * (tankDimensions.depth - 2)
             );
             plant.castShadow = true;
-            scene.add(plant);
+            if (scene) scene.add(plant);
             const positionAttribute = plant.geometry.attributes.position;
             plantsRef.current.push({ mesh: plant, baseY: new Float32Array(positionAttribute.array) });
         }
@@ -200,8 +200,6 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
             frameId = requestAnimationFrame(animate);
             const delta = Math.min(clock.getDelta(), 0.05);
             const elapsedTime = clock.getElapsedTime();
-            const currentCamera = cameraRef.current;
-            if (!currentCamera) return;
             
             controls.update();
             
@@ -235,31 +233,52 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 fish.velocity.add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(0.1));
                 fish.velocity.clampLength(1, 2);
 
-                // Orientation and animation
+                fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
+                
                 if ((fish.group as any).isCustom) {
-                    fish.group.lookAt(currentCamera.position);
+                     const plane = fish.group.children[0] as THREE.Mesh;
+                     if (plane && plane.geometry) {
+                         const geometry = plane.geometry as THREE.PlaneGeometry;
+                         const originalPositions = geometry.userData.originalPositions;
+                         const positions = geometry.attributes.position;
+                         const fishWidth = geometry.parameters.width;
+
+                         if (originalPositions && positions) {
+                             for (let i = 0; i < positions.count; i++) {
+                                 const originalX = originalPositions[i * 3];
+                                 const originalY = originalPositions[i * 3 + 1];
+
+                                 const bendFactor = (originalX + fishWidth / 2) / fishWidth;
+                                 const wave = Math.sin(originalX * 0.5 + elapsedTime * 10) * 0.3 * bendFactor;
+                                 
+                                 positions.setY(i, originalY + wave);
+                             }
+                             positions.needsUpdate = true;
+                         }
+                     }
                 } else {
-                    fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
-                    
                     const tail = fish.group.getObjectByName('tail');
                     if (tail) {
                         tail.rotation.y = Math.sin(elapsedTime * 8) * 0.5;
                     }
                 }
             });
-
-            renderer.render(scene, currentCamera);
+            
+            const currentCamera = cameraRef.current;
+            if (currentCamera && scene) {
+                renderer.render(scene, currentCamera);
+            }
         };
         animate();
 
         // Handle resize
         const handleResize = () => {
             const currentCamera = cameraRef.current;
-            if (currentCamera) {
+            if (mount && currentCamera) {
                 currentCamera.aspect = mount.clientWidth / mount.clientHeight;
                 currentCamera.updateProjectionMatrix();
+                renderer.setSize(mount.clientWidth, mount.clientHeight);
             }
-            renderer.setSize(mount.clientWidth, mount.clientHeight);
         };
         window.addEventListener('resize', handleResize);
 
@@ -350,7 +369,8 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 const fishHeight = 1.5;
                 const fishWidth = fishHeight * aspectRatio;
 
-                const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight);
+                const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight, 20, 5);
+                geometry.userData.originalPositions = new Float32Array(geometry.attributes.position.array);
                 const plane = new THREE.Mesh(geometry, material);
                 
                 const group = new THREE.Group();
@@ -365,8 +385,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 scene.add(group);
 
                 fishRef.current.push({
-                    // Use a large negative number for custom fish IDs to avoid collision with behavior-based IDs
-                    id: -(index + 1),
+                    id: -(fishRef.current.length + 1),
                     group,
                     velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
                     bob: Math.random() * Math.PI * 2,
