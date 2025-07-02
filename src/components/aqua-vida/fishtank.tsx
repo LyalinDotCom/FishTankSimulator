@@ -10,6 +10,7 @@ type FishObject = {
     group: THREE.Group;
     velocity: THREE.Vector3;
     bob: number;
+    fleeUntil?: number;
 };
 
 type PlantObject = {
@@ -210,6 +211,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
             frameId = requestAnimationFrame(animate);
             const delta = Math.min(clock.getDelta(), 0.05);
             const elapsedTime = clock.getElapsedTime();
+            const now = elapsedTime;
             
             controls.update();
 
@@ -251,31 +253,42 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
             fishRef.current.forEach(fish => {
                 const isProcedural = (fish.group as any).isProcedural;
                 const isCustom = (fish.group as any).isCustom;
-                let isFleeing = false;
-
-                // 1. Calculate behavior (fleeing, random movement)
+                
+                // 1. Calculate behavior
                 if (isProcedural) {
-                    if (scaryFish.length > 0) {
-                        const FEAR_DISTANCE = 4.0;
-                        const FLEE_STRENGTH = 1.5;
+                    const isCurrentlyFleeing = fish.fleeUntil && now < fish.fleeUntil;
+
+                    if (isCurrentlyFleeing) {
+                        // Already in a fleeing state, let momentum carry it.
+                        fish.velocity.multiplyScalar(0.99); // apply some drag
+                    } else {
+                        // Not currently fleeing, reset state and check for predators.
+                        if (fish.fleeUntil) fish.fleeUntil = 0;
+                        
                         let fleeVector = new THREE.Vector3();
+                        if (scaryFish.length > 0) {
+                            const FEAR_DISTANCE = 4.0;
+                            const FLEE_STRENGTH = 2.5; 
 
-                        scaryFish.forEach(predator => {
-                            const distance = fish.group.position.distanceTo(predator.group.position);
-                            if (distance < FEAR_DISTANCE) {
-                                const direction = new THREE.Vector3().subVectors(fish.group.position, predator.group.position).normalize();
-                                fleeVector.add(direction);
+                            for (const predator of scaryFish) {
+                                const distance = fish.group.position.distanceTo(predator.group.position);
+                                if (distance < FEAR_DISTANCE) {
+                                    const direction = new THREE.Vector3().subVectors(fish.group.position, predator.group.position).normalize();
+                                    fleeVector.add(direction);
+                                    break; // Found a predator, no need to check others.
+                                }
                             }
-                        });
 
-                        if (fleeVector.length() > 0) {
-                            fish.velocity.add(fleeVector.normalize().multiplyScalar(FLEE_STRENGTH));
-                            isFleeing = true;
+                            if (fleeVector.length() > 0) {
+                                fish.velocity.copy(fleeVector.normalize().multiplyScalar(FLEE_STRENGTH));
+                                fish.fleeUntil = now + 3; // Flee for 3 seconds
+                            }
                         }
-                    }
-                    // Add gentle random movement if not fleeing
-                    if (!isFleeing) {
-                        fish.velocity.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.05));
+
+                        // If not starting to flee, perform normal gentle movement.
+                        if (!fish.fleeUntil) {
+                            fish.velocity.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.05));
+                        }
                     }
                 } else if (isCustom) {
                     // Constrain velocity to be mostly horizontal for 2D fish
@@ -298,9 +311,18 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 fish.group.position.y += Math.sin(elapsedTime * 2 + fish.bob) * 0.005;
 
                 // 4. Boundary checks
-                if (fish.group.position.x > halfW || fish.group.position.x < -halfW) fish.velocity.x *= -1;
-                if (fish.group.position.y > halfH || fish.group.position.y < -halfH) fish.velocity.y *= -1;
-                if (fish.group.position.z > halfD || fish.group.position.z < -halfD) fish.velocity.z *= -1;
+                if (fish.group.position.x > halfW || fish.group.position.x < -halfW) {
+                    fish.velocity.x *= -1;
+                    if (fish.fleeUntil && now < fish.fleeUntil) fish.fleeUntil = 0; // Stop fleeing if it hits a wall
+                }
+                if (fish.group.position.y > halfH || fish.group.position.y < -halfH) {
+                    fish.velocity.y *= -1;
+                    if (fish.fleeUntil && now < fish.fleeUntil) fish.fleeUntil = 0;
+                }
+                if (fish.group.position.z > halfD || fish.group.position.z < -halfD) {
+                    fish.velocity.z *= -1;
+                    if (fish.fleeUntil && now < fish.fleeUntil) fish.fleeUntil = 0;
+                }
                 
                 // 5. Update orientation and visual animation
                 if (isCustom && currentCamera) {
@@ -413,6 +435,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 group,
                 velocity: new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize().multiplyScalar(1.5),
                 bob: Math.random() * Math.PI * 2,
+                fleeUntil: 0,
             });
         });
 
@@ -474,6 +497,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                         group,
                         velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
                         bob: Math.random() * Math.PI * 2,
+                        fleeUntil: 0,
                     });
                 });
             });
