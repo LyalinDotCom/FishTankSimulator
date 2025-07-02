@@ -11,6 +11,7 @@ type FishObject = {
     velocity: THREE.Vector3;
     bob: number;
     fleeUntil?: number;
+    immuneUntil?: number;
 };
 
 type PlantObject = {
@@ -256,13 +257,11 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 
                 // 1. Calculate behavior
                 if (isProcedural) {
+                    const isImmune = fish.immuneUntil && now < fish.immuneUntil;
                     const isCurrentlyFleeing = fish.fleeUntil && now < fish.fleeUntil;
 
-                    if (isCurrentlyFleeing) {
-                        fish.velocity.multiplyScalar(0.98);
-                    } else {
-                        if (fish.fleeUntil) fish.fleeUntil = 0;
-
+                    // Check for predators only if not immune and not already fleeing
+                    if (!isImmune && !isCurrentlyFleeing) {
                         let fleeVector = new THREE.Vector3();
                         if (scaryFish.length > 0) {
                             const FEAR_DISTANCE = 4.0;
@@ -279,12 +278,14 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
 
                             if (fleeVector.length() > 0) {
                                 fish.velocity.copy(fleeVector.normalize().multiplyScalar(FLEE_STRENGTH));
-                                fish.fleeUntil = now + 2; 
+                                fish.fleeUntil = now + 2; // Flee for 2 seconds.
                             }
                         }
                     }
 
-                    if (!fish.fleeUntil || now > fish.fleeUntil) {
+                    // If not currently fleeing, apply normal random movement.
+                    if (!isCurrentlyFleeing) {
+                        if (fish.fleeUntil) fish.fleeUntil = 0; // Reset flee timer if it has expired
                         fish.velocity.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.05));
                     }
                 } else if (isCustom) {
@@ -308,32 +309,38 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 fish.group.position.y += Math.sin(elapsedTime * 2 + fish.bob) * 0.005;
 
                 // 4. Boundary checks - Clamping position to prevent escape
+                let hitWall = false;
                 if (fish.group.position.x > halfW) {
                     fish.group.position.x = halfW;
                     fish.velocity.x *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
                 } else if (fish.group.position.x < -halfW) {
                     fish.group.position.x = -halfW;
                     fish.velocity.x *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
                 }
                 if (fish.group.position.y > halfH) {
                     fish.group.position.y = halfH;
                     fish.velocity.y *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
                 } else if (fish.group.position.y < -halfH) {
                     fish.group.position.y = -halfH;
                     fish.velocity.y *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
                 }
                 if (fish.group.position.z > halfD) {
                     fish.group.position.z = halfD;
                     fish.velocity.z *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
                 } else if (fish.group.position.z < -halfD) {
                     fish.group.position.z = -halfD;
                     fish.velocity.z *= -1;
-                    if (isProcedural) fish.fleeUntil = 0;
+                    hitWall = true;
+                }
+                
+                if (hitWall && isProcedural) {
+                    fish.fleeUntil = 0; // Stop being scared
+                    fish.immuneUntil = now + 10; // Become immune for 10 seconds
                 }
                 
                 // 5. Update orientation and visual animation
@@ -448,6 +455,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 velocity: new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize().multiplyScalar(1.5),
                 bob: Math.random() * Math.PI * 2,
                 fleeUntil: 0,
+                immuneUntil: 0,
             });
         });
 
@@ -513,6 +521,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                         velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
                         bob: Math.random() * Math.PI * 2,
                         fleeUntil: 0,
+                        immuneUntil: 0,
                     });
                 });
             });
