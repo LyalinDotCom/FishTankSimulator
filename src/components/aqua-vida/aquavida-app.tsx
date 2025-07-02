@@ -30,6 +30,11 @@ function generateLocalBehaviors(count: number, dimensions: typeof TANK_DIMENSION
     return behaviors;
 }
 
+// Helper to ensure all fish have a unique ID, which is crucial for React keys and Three.js object tracking.
+const assignUniqueIds = (behaviors: FishBehavior[]): FishBehavior[] => {
+    return behaviors.map((b, index) => ({ ...b, id: index }));
+};
+
 export default function AquaVidaApp() {
     const [fishCount, setFishCount] = useState(15);
     const [behaviors, setBehaviors] = useState<GenerateFishBehaviorOutput>([]);
@@ -38,14 +43,20 @@ export default function AquaVidaApp() {
     const { toast } = useToast();
 
     useEffect(() => {
-        // Generate initial fish on mount
-        setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
+        // Generate initial procedural fish on mount
+        const initialProceduralFish = generateLocalBehaviors(fishCount, TANK_DIMENSIONS);
+        setBehaviors(assignUniqueIds(initialProceduralFish));
          // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleFishCountChange = (count: number) => {
         setFishCount(count);
-        setBehaviors(generateLocalBehaviors(count, TANK_DIMENSIONS));
+        setBehaviors(prevBehaviors => {
+            // Keep AI-generated fish, replace procedural ones
+            const aiFish = prevBehaviors.filter(b => b.swimmingPattern !== 'procedural');
+            const newProceduralFish = generateLocalBehaviors(count, TANK_DIMENSIONS);
+            return assignUniqueIds([...aiFish, ...newProceduralFish]);
+        });
     };
 
     const handleImageUpload = (dataUrl: string) => {
@@ -63,8 +74,14 @@ export default function AquaVidaApp() {
                 fishCount,
                 tankDimensions: TANK_DIMENSIONS,
             };
-            const newBehaviors = await generateFishBehavior(input);
-            setBehaviors(newBehaviors);
+            const newAiBehaviors = await generateFishBehavior(input);
+            
+            setBehaviors(prevBehaviors => {
+                // Keep procedural fish, replace AI-generated ones
+                const proceduralFish = prevBehaviors.filter(b => b.swimmingPattern === 'procedural');
+                return assignUniqueIds([...proceduralFish, ...newAiBehaviors]);
+            });
+
             toast({
                 title: "Success!",
                 description: "New AI-powered fish have been added to the tank.",
