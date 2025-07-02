@@ -23,6 +23,7 @@ interface FishTankProps {
 
 export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
     const mountRef = useRef<HTMLDivElement>(null);
+    const sceneRef = useRef<THREE.Scene | null>(null);
     const fishRef = useRef<FishObject[]>([]);
     const plantsRef = useRef<PlantObject[]>([]);
     
@@ -32,6 +33,7 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
 
         // Scene setup
         const scene = new THREE.Scene();
+        sceneRef.current = scene;
         const camera = new THREE.PerspectiveCamera(75, mount.clientWidth / mount.clientHeight, 0.1, 1000);
         camera.position.set(0, 5, 15);
 
@@ -97,7 +99,6 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
         for (let i = 0; i < 15; i++) {
             const height = Math.random() * 4 + 2;
             const plantGeom = new THREE.CylinderGeometry(0.1, 0.2, height, 8, 20);
-            plantGeom.setAttribute('baseY', new THREE.Float32BufferAttribute(plantGeom.attributes.position.getY.toString(), 1));
             const plant = new THREE.Mesh(plantGeom, plantMaterial);
             plant.position.set(
                 (Math.random() - 0.5) * (tankDimensions.width - 2),
@@ -191,11 +192,23 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
     }, [tankDimensions]);
 
     useEffect(() => {
-        const scene = mountRef.current?.childNodes[0] ? (mountRef.current.childNodes[0] as any).__scene : null;
+        const scene = sceneRef.current;
         if (!scene || !behaviors) return;
         
         // Clear old fish
-        fishRef.current.forEach(fish => scene.remove(fish.group));
+        fishRef.current.forEach(fish => {
+            scene.remove(fish.group);
+            fish.group.traverse(child => {
+                if (child instanceof THREE.Mesh) {
+                    child.geometry.dispose();
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(material => material.dispose());
+                    } else if (child.material) {
+                        child.material.dispose();
+                    }
+                }
+            });
+        });
         fishRef.current = [];
         
         // Add new fish
@@ -228,7 +241,7 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
             });
         });
         
-    }, [behaviors, tankDimensions]);
+    }, [behaviors]);
 
     return <div ref={mountRef} className="absolute inset-0 z-0" />;
 }
