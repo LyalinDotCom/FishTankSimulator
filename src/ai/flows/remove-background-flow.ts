@@ -21,7 +21,7 @@ export async function removeImageBackground(photoDataUri: string): Promise<strin
     model: 'googleai/gemini-2.0-flash-preview-image-generation',
     prompt: [
         { media: { url: photoDataUri } },
-        { text: 'You are an expert image editor. Isolate the fish in this image and remove the background completely. The output must be a PNG image with a fully transparent background.' },
+        { text: 'Generate a new image of the fish from the provided picture, but place it on a fully transparent background. The output must be a PNG image with a transparent background.' },
     ],
     config: {
         responseModalities: ['TEXT', 'IMAGE'],
