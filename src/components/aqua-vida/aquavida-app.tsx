@@ -8,6 +8,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { Controls } from './controls';
 import { FishTank } from './fishtank';
+import { CameraCapture } from './camera-capture';
+import { Toaster } from "@/components/ui/toaster";
 
 const TANK_DIMENSIONS = {
     width: 20,
@@ -23,6 +25,7 @@ export default function AquaVidaApp() {
     const [isUploading, setIsUploading] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [statusIsError, setStatusIsError] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
 
     const generateLocalBehaviors = (count: number, dimensions: typeof TANK_DIMENSIONS): GenerateFishBehaviorOutput => {
         const behaviors: FishBehavior[] = [];
@@ -99,8 +102,14 @@ export default function AquaVidaApp() {
         showStatus("Simulation Reset. The tank has been returned to its default state.");
     };
 
+    const handlePhotoTaken = async (dataUrl: string) => {
+        setShowCamera(false);
+        await handleImageUpload(dataUrl);
+    };
+
     return (
         <div className="flex flex-col w-screen h-screen overflow-hidden bg-background">
+            <Toaster />
             <h1 className="absolute top-4 left-1/2 -translate-x-1/2 text-3xl font-bold text-primary-foreground/80 font-headline z-10 select-none pointer-events-none">
                 AquaVida
             </h1>
@@ -110,6 +119,12 @@ export default function AquaVidaApp() {
                     tankDimensions={TANK_DIMENSIONS} 
                     customFishImages={customFishImages} 
                 />
+                {showCamera && (
+                    <CameraCapture 
+                        onPhotoTaken={handlePhotoTaken}
+                        onClose={() => setShowCamera(false)}
+                    />
+                )}
             </div>
             <Controls 
                 fishCount={fishCount}
@@ -117,6 +132,7 @@ export default function AquaVidaApp() {
                 onImageUpload={handleImageUpload}
                 onGenerate={handleGenerate}
                 onReset={handleReset}
+                onUseCamera={() => setShowCamera(true)}
                 isLoading={isLoading}
                 isUploading={isUploading}
                 statusMessage={statusMessage}

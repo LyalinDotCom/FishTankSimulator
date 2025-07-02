@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Camera } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ interface ControlsProps {
     onImageUpload: (dataUrl: string) => void;
     onGenerate: () => void;
     onReset: () => void;
+    onUseCamera: () => void;
     isLoading: boolean;
     isUploading: boolean;
     statusMessage: string | null;
@@ -27,6 +28,7 @@ export function Controls({
     onImageUpload, 
     onGenerate, 
     onReset, 
+    onUseCamera,
     isLoading, 
     isUploading, 
     statusMessage,
@@ -85,8 +87,8 @@ export function Controls({
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col gap-2">
                         <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isUploading ? 'Processing...' : 'Upload Your Fish'}
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isUploading ? 'Processing...' : 'Upload Fish'}
                         </Button>
                         <Input
                             type="file"
@@ -96,7 +98,11 @@ export function Controls({
                             accept="image/png, image/jpeg"
                         />
                     </div>
-                    <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
+                    <Button onClick={onUseCamera} variant="outline" disabled={isLoading || isUploading}>
+                        <Camera className="mr-2 h-4 w-4" />
+                        Use Camera
+                    </Button>
+                    <Button onClick={onGenerate} disabled={isLoading || isUploading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Generate AI Fish
                     </Button>
