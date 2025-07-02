@@ -38,8 +38,15 @@ export default function AquaVidaApp() {
     const { toast } = useToast();
 
     useEffect(() => {
+        // Generate initial fish on mount
         setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
-    }, [fishCount]);
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleFishCountChange = (count: number) => {
+        setFishCount(count);
+        setBehaviors(generateLocalBehaviors(count, TANK_DIMENSIONS));
+    };
 
     const handleImageUpload = (dataUrl: string) => {
         setCustomFishImages(prev => [...prev, dataUrl]);
@@ -81,7 +88,7 @@ export default function AquaVidaApp() {
             </h1>
             <Controls 
                 fishCount={fishCount}
-                onFishCountChange={setFishCount}
+                onFishCountChange={handleFishCountChange}
                 onImageUpload={handleImageUpload}
                 onGenerate={handleGenerate}
                 isLoading={isLoading}
