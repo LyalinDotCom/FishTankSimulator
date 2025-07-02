@@ -377,6 +377,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                     map: texture,
                     transparent: true,
                     side: THREE.DoubleSide,
+                    alphaTest: 0.5,
                 });
 
                 const aspectRatio = texture.image.width / texture.image.height;
