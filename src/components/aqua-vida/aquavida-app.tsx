@@ -31,11 +31,15 @@ function generateLocalBehaviors(count: number, dimensions: typeof TANK_DIMENSION
 export default function AquaVidaApp() {
     const [fishCount, setFishCount] = useState(15);
     const [behaviors, setBehaviors] = useState<GenerateFishBehaviorOutput>([]);
+    const [customFishImages, setCustomFishImages] = useState<string[]>([]);
 
     useEffect(() => {
         setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
     }, [fishCount]);
 
+    const handleImageUpload = (dataUrl: string) => {
+        setCustomFishImages(prev => [...prev, dataUrl]);
+    };
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-background">
@@ -45,8 +49,13 @@ export default function AquaVidaApp() {
             <Controls 
                 fishCount={fishCount}
                 onFishCountChange={setFishCount}
+                onImageUpload={handleImageUpload}
             />
-            <FishTank behaviors={behaviors} tankDimensions={TANK_DIMENSIONS} />
+            <FishTank 
+                behaviors={behaviors} 
+                tankDimensions={TANK_DIMENSIONS} 
+                customFishImages={customFishImages} 
+            />
         </div>
     );
 }

@@ -19,11 +19,13 @@ type PlantObject = {
 interface FishTankProps {
     behaviors: GenerateFishBehaviorOutput;
     tankDimensions: { width: number; height: number; depth: number; };
+    customFishImages: string[];
 }
 
-export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
+export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTankProps) {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const fishRef = useRef<FishObject[]>([]);
     const plantsRef = useRef<PlantObject[]>([]);
     
@@ -36,6 +38,7 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
         sceneRef.current = scene;
         const camera = new THREE.PerspectiveCamera(75, mount.clientWidth / mount.clientHeight, 0.1, 1000);
         camera.position.set(0, 5, 15);
+        cameraRef.current = camera;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(mount.clientWidth, mount.clientHeight);
@@ -118,6 +121,8 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
             frameId = requestAnimationFrame(animate);
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
+            const currentCamera = cameraRef.current;
+            if (!currentCamera) return;
             
             controls.update();
             
@@ -139,6 +144,7 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
             const halfD = tankDimensions.depth / 2 - 0.5;
             
             fishRef.current.forEach(fish => {
+                // Movement
                 fish.group.position.add(fish.velocity.clone().multiplyScalar(delta));
                 fish.group.position.y += Math.sin(elapsedTime * 2 + fish.bob) * 0.005;
 
@@ -150,23 +156,30 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
                 fish.velocity.add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(0.1));
                 fish.velocity.clampLength(1, 2);
 
-                fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
-                
-                // Tail animation
-                const tail = fish.group.children[1];
-                if (tail) {
-                    tail.rotation.y = Math.sin(elapsedTime * 8) * 0.5;
+                // Orientation and animation
+                if ((fish.group as any).isCustom) {
+                    fish.group.lookAt(currentCamera.position);
+                } else {
+                    fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
+                    
+                    const tail = fish.group.children[1];
+                    if (tail) {
+                        tail.rotation.y = Math.sin(elapsedTime * 8) * 0.5;
+                    }
                 }
             });
 
-            renderer.render(scene, camera);
+            renderer.render(scene, currentCamera);
         };
         animate();
 
         // Handle resize
         const handleResize = () => {
-            camera.aspect = mount.clientWidth / mount.clientHeight;
-            camera.updateProjectionMatrix();
+            const currentCamera = cameraRef.current;
+            if (currentCamera) {
+                currentCamera.aspect = mount.clientWidth / mount.clientHeight;
+                currentCamera.updateProjectionMatrix();
+            }
             renderer.setSize(mount.clientWidth, mount.clientHeight);
         };
         window.addEventListener('resize', handleResize);
@@ -183,7 +196,7 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
                     child.geometry.dispose();
                     if (Array.isArray(child.material)) {
                         child.material.forEach(material => material.dispose());
-                    } else {
+                    } else if (child.material) {
                         child.material.dispose();
                     }
                 }
@@ -195,8 +208,9 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
         const scene = sceneRef.current;
         if (!scene || !behaviors) return;
         
-        // Clear old fish
-        fishRef.current.forEach(fish => {
+        // Clear old procedural fish
+        const proceduralFish = fishRef.current.filter(fish => !(fish.group as any).isCustom);
+        proceduralFish.forEach(fish => {
             scene.remove(fish.group);
             fish.group.traverse(child => {
                 if (child instanceof THREE.Mesh) {
@@ -209,9 +223,9 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
                 }
             });
         });
-        fishRef.current = [];
-        
-        // Add new fish
+        fishRef.current = fishRef.current.filter(fish => (fish.group as any).isCustom);
+
+        // Add new procedural fish
         behaviors.forEach(behavior => {
             const bodyGeom = new THREE.SphereGeometry(0.2, 16, 8);
             const tailGeom = new THREE.ConeGeometry(0.15, 0.4, 8);
@@ -240,8 +254,54 @@ export function FishTank({ behaviors, tankDimensions }: FishTankProps) {
                 bob: Math.random() * Math.PI * 2,
             });
         });
-        
     }, [behaviors]);
+
+    useEffect(() => {
+        const scene = sceneRef.current;
+        if (!scene) return;
+
+        const existingCustomFishCount = fishRef.current.filter(f => (f.group as any).isCustom).length;
+        if (customFishImages.length <= existingCustomFishCount) {
+            return;
+        }
+
+        const newImages = customFishImages.slice(existingCustomFishCount);
+        const textureLoader = new THREE.TextureLoader();
+
+        newImages.forEach(imageUrl => {
+            textureLoader.load(imageUrl, (texture) => {
+                const material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                });
+
+                const aspectRatio = texture.image.width / texture.image.height;
+                const fishHeight = 1.5;
+                const fishWidth = fishHeight * aspectRatio;
+
+                const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight);
+                const plane = new THREE.Mesh(geometry, material);
+                
+                const group = new THREE.Group();
+                group.add(plane);
+                (group as any).isCustom = true;
+
+                group.position.set(
+                    (Math.random() - 0.5) * tankDimensions.width * 0.5,
+                    (Math.random() - 0.5) * tankDimensions.height * 0.5,
+                    (Math.random() - 0.5) * tankDimensions.depth * 0.5
+                );
+                scene.add(group);
+
+                fishRef.current.push({
+                    group,
+                    velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
+                    bob: Math.random() * Math.PI * 2,
+                });
+            });
+        });
+    }, [customFishImages, tankDimensions]);
 
     return <div ref={mountRef} className="absolute inset-0 z-0" />;
 }
