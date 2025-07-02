@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { GenerateFishBehaviorOutput, FishBehavior, GenerateFishBehaviorInput } from '@/lib/types';
-import { generateFishBehavior } from '@/ai/flows/generate-fish-behavior';
+import type { GenerateFishBehaviorOutput, FishBehavior, CustomFish } from '@/lib/types';
+import { generateFishImage } from '@/ai/flows/generate-fish-image';
 import { removeImageBackground } from '@/ai/flows/remove-background-flow';
 import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from 'uuid';
 
 import { Controls } from './controls';
 import { FishTank } from './fishtank';
@@ -15,36 +16,40 @@ const TANK_DIMENSIONS = {
     depth: 10,
 };
 
-// Helper to ensure all fish have a unique ID, which is crucial for React keys and Three.js object tracking.
-const assignUniqueIds = (behaviors: FishBehavior[]): FishBehavior[] => {
-    // Find the highest existing ID to avoid collisions
-    const maxId = behaviors.reduce((max, b) => Math.max(b.id, max), 0);
-    let currentId = maxId + 1;
-    return behaviors.map((b) => ({ ...b, id: b.id >= 0 ? b.id : currentId++ }));
-};
-
-
 export default function AquaVidaApp() {
     const [fishCount, setFishCount] = useState(15);
     const [behaviors, setBehaviors] = useState<GenerateFishBehaviorOutput>([]);
-    const [customFishImages, setCustomFishImages] = useState<string[]>([]);
+    const [customFishImages, setCustomFishImages] = useState<CustomFish[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const { toast } = useToast();
 
+    const generateLocalBehaviors = (count: number, dimensions: typeof TANK_DIMENSIONS): GenerateFishBehaviorOutput => {
+        const behaviors: FishBehavior[] = [];
+        for (let i = 0; i < count; i++) {
+            behaviors.push({
+                id: i,
+                startPosition: {
+                    x: (Math.random() - 0.5) * dimensions.width * 0.9,
+                    y: (Math.random() - 0.5) * dimensions.height * 0.9,
+                    z: (Math.random() - 0.5) * dimensions.depth * 0.9,
+                },
+                swimmingPattern: 'procedural',
+            });
+        }
+        return behaviors;
+    }
+
     useEffect(() => {
         const initialProceduralFish = generateLocalBehaviors(fishCount, TANK_DIMENSIONS);
-        setBehaviors(assignUniqueIds(initialProceduralFish));
+        setBehaviors(initialProceduralFish);
          // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleFishCountChange = (count: number) => {
         setFishCount(count);
         const proceduralFish = generateLocalBehaviors(count, TANK_DIMENSIONS);
-        setBehaviors(prevBehaviors => {
-            const nonProceduralFish = prevBehaviors.filter(b => b.swimmingPattern !== 'procedural');
-            return assignUniqueIds([...nonProceduralFish, ...proceduralFish]);
-        });
+        setBehaviors(proceduralFish);
     };
 
     const handleImageUpload = async (dataUrl: string) => {
@@ -55,7 +60,7 @@ export default function AquaVidaApp() {
         });
         try {
             const processedImage = await removeImageBackground(dataUrl);
-            setCustomFishImages(prev => [...prev, processedImage]);
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: processedImage }]);
             toast({
                 title: "Success!",
                 description: "Your custom fish has been added to the tank.",
@@ -75,27 +80,19 @@ export default function AquaVidaApp() {
     const handleGenerate = async () => {
         setIsLoading(true);
         toast({
-            title: "Generating new fish...",
-            description: "The AI is creating new swimming patterns and shapes. Please wait.",
+            title: "Generating new AI fish...",
+            description: "The AI is creating a new fish image. Please wait.",
         });
         try {
-            const input: GenerateFishBehaviorInput = {
-                fishCount,
-                tankDimensions: TANK_DIMENSIONS,
-            };
-            const newAiBehaviors = await generateFishBehavior(input);
-            
-            setBehaviors(prevBehaviors => {
-                 const nonAiFish = prevBehaviors.filter(b => !b.shape);
-                 return assignUniqueIds([...nonAiFish, ...newAiBehaviors]);
-            });
+            const newImage = await generateFishImage();
+            setCustomFishImages(prev => [...prev, { id: uuidv4(), url: newImage }]);
 
             toast({
                 title: "Success!",
-                description: "New AI-powered fish have been added to the tank.",
+                description: "A new AI-powered fish has been added to the tank.",
             });
         } catch (error) {
-            console.error("Failed to generate fish behavior:", error);
+            console.error("Failed to generate fish image:", error);
             toast({
                 variant: "destructive",
                 title: "Uh oh! Something went wrong.",
@@ -106,39 +103,35 @@ export default function AquaVidaApp() {
         }
     };
 
-    function generateLocalBehaviors(count: number, dimensions: typeof TANK_DIMENSIONS): GenerateFishBehaviorOutput {
-        const behaviors: FishBehavior[] = [];
-        for (let i = 0; i < count; i++) {
-            behaviors.push({
-                id: i,
-                startPosition: {
-                    x: (Math.random() - 0.5) * dimensions.width * 0.9,
-                    y: (Math.random() - 0.5) * dimensions.height * 0.9,
-                    z: (Math.random() - 0.5) * dimensions.depth * 0.9,
-                },
-                swimmingPattern: 'procedural',
-            });
-        }
-        return behaviors;
-    }
+    const handleReset = () => {
+        setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
+        setCustomFishImages([]);
+        toast({
+            title: "Simulation Reset",
+            description: "The fish tank has been reset to its default state.",
+        });
+    };
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-background">
+        <div className="flex flex-col w-screen h-screen overflow-hidden bg-background">
             <h1 className="absolute top-4 left-1/2 -translate-x-1/2 text-3xl font-bold text-primary-foreground/80 font-headline z-10 select-none pointer-events-none">
                 AquaVida
             </h1>
+            <div className="relative flex-1">
+                <FishTank 
+                    behaviors={behaviors} 
+                    tankDimensions={TANK_DIMENSIONS} 
+                    customFishImages={customFishImages} 
+                />
+            </div>
             <Controls 
                 fishCount={fishCount}
                 onFishCountChange={handleFishCountChange}
                 onImageUpload={handleImageUpload}
                 onGenerate={handleGenerate}
+                onReset={handleReset}
                 isLoading={isLoading}
                 isUploading={isUploading}
-            />
-            <FishTank 
-                behaviors={behaviors} 
-                tankDimensions={TANK_DIMENSIONS} 
-                customFishImages={customFishImages} 
             />
         </div>
     );

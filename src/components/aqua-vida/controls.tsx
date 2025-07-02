@@ -2,7 +2,6 @@
 
 import { useRef } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -14,11 +13,12 @@ interface ControlsProps {
     onFishCountChange: (count: number) => void;
     onImageUpload: (dataUrl: string) => void;
     onGenerate: () => void;
+    onReset: () => void;
     isLoading: boolean;
     isUploading: boolean;
 }
 
-export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, isLoading, isUploading }: ControlsProps) {
+export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, onReset, isLoading, isUploading }: ControlsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUploadClick = () => {
@@ -39,13 +39,9 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
     };
 
     return (
-        <Card className="absolute top-4 right-4 z-20 w-80 shadow-lg bg-card/80 backdrop-blur-sm border-primary/20">
-            <CardHeader>
-                <CardTitle>Controls</CardTitle>
-                <CardDescription>Adjust the aquarium settings.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-3">
+        <div className="z-20 flex flex-wrap items-center justify-center gap-6 p-4 border-t bg-card/80 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+                 <div className="space-y-2 w-48">
                     <Label htmlFor="fish-count">Procedural Fish: <span className="font-bold text-primary-foreground">{fishCount}</span></Label>
                     <Slider
                         id="fish-count"
@@ -54,14 +50,19 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
                         step={1}
                         value={[fishCount]}
                         onValueChange={(value) => onFishCountChange(value[0])}
-                        disabled={isLoading}
+                        disabled={isLoading || isUploading}
                     />
                 </div>
-                <div className="space-y-3">
-                    <Label>Add Your Fish</Label>
-                    <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
+                <Button onClick={onReset} variant="outline" disabled={isLoading || isUploading}>Reset</Button>
+            </div>
+           
+            <Separator orientation="vertical" className="h-10" />
+
+            <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-2">
+                     <Button onClick={handleUploadClick} variant="outline" className="w-full" disabled={isUploading || isLoading}>
                         {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isUploading ? 'Processing...' : 'Upload Image'}
+                        {isUploading ? 'Processing...' : 'Upload Your Fish'}
                     </Button>
                     <Input
                         type="file"
@@ -71,15 +72,11 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenera
                         accept="image/png, image/jpeg"
                     />
                 </div>
-                <Separator />
-                <div className="space-y-3">
-                    <Label>AI Generation</Label>
-                     <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Generate with AI
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                 <Button onClick={onGenerate} disabled={isLoading || isUploading} className="w-full">
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Generate AI Fish
+                </Button>
+            </div>
+        </div>
     );
 }

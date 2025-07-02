@@ -3,10 +3,10 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { GenerateFishBehaviorOutput, FishShape, FishBehavior } from '@/lib/types';
+import type { GenerateFishBehaviorOutput, FishShape, FishBehavior, CustomFish } from '@/lib/types';
 
 type FishObject = {
-    id: number;
+    id: number | string;
     group: THREE.Group;
     velocity: THREE.Vector3;
     bob: number;
@@ -20,7 +20,7 @@ type PlantObject = {
 interface FishTankProps {
     behaviors: GenerateFishBehaviorOutput;
     tankDimensions: { width: number; height: number; depth: number; };
-    customFishImages: string[];
+    customFishImages: CustomFish[];
 }
 
 function createProceduralFishMesh(material: THREE.MeshStandardMaterial): THREE.Group {
@@ -362,51 +362,62 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
         const scene = sceneRef.current;
         if (!scene) return;
 
-        // This handles custom uploaded fish images
-        const customFishInScene = fishRef.current.filter(f => (f.group as any).isCustom);
-        if (customFishImages.length <= customFishInScene.length) {
-            return;
-        }
+        // Get IDs of custom fish currently in the scene
+        const sceneFishIds = new Set(fishRef.current.filter(f => (f.group as any).isCustom).map(f => f.id));
+        const propImageIds = new Set(customFishImages.map(img => img.id));
 
-        const newImages = customFishImages.slice(customFishInScene.length);
-        const textureLoader = new THREE.TextureLoader();
+        // Find and remove fish that are in the scene but no longer in props
+        const fishToRemove = fishRef.current.filter(f => (f.group as any).isCustom && !propImageIds.has(f.id as string));
+        fishToRemove.forEach(fish => {
+            scene.remove(fish.group);
+            disposeGroup(fish.group);
+        });
+        
+        // Filter out the removed fish from our main fish reference array
+        fishRef.current = fishRef.current.filter(f => !fishToRemove.some(removed => removed.id === f.id));
 
-        newImages.forEach((imageUrl, index) => {
-            textureLoader.load(imageUrl, (texture) => {
-                const material = new THREE.MeshBasicMaterial({
-                    map: texture,
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    alphaTest: 0.5,
-                });
+        // Find and add images that are in props but not in the scene
+        const imagesToAdd = customFishImages.filter(img => !sceneFishIds.has(img.id));
 
-                const aspectRatio = texture.image.width / texture.image.height;
-                const fishHeight = 1.5;
-                const fishWidth = fishHeight * aspectRatio;
+        if (imagesToAdd.length > 0) {
+            const textureLoader = new THREE.TextureLoader();
+            imagesToAdd.forEach((image) => {
+                textureLoader.load(image.url, (texture) => {
+                    const material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        alphaTest: 0.1,
+                    });
 
-                const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight, 20, 5);
-                geometry.userData.originalPositions = new Float32Array(geometry.attributes.position.array);
-                const plane = new THREE.Mesh(geometry, material);
-                
-                const group = new THREE.Group();
-                group.add(plane);
-                (group as any).isCustom = true;
+                    const aspectRatio = texture.image.width / texture.image.height;
+                    const fishHeight = 1.5;
+                    const fishWidth = fishHeight * aspectRatio;
 
-                group.position.set(
-                    (Math.random() - 0.5) * tankDimensions.width * 0.5,
-                    (Math.random() - 0.5) * tankDimensions.height * 0.5,
-                    (Math.random() - 0.5) * tankDimensions.depth * 0.5
-                );
-                scene.add(group);
+                    const geometry = new THREE.PlaneGeometry(fishWidth, fishHeight, 20, 5);
+                    geometry.userData.originalPositions = new Float32Array(geometry.attributes.position.array);
+                    const plane = new THREE.Mesh(geometry, material);
+                    
+                    const group = new THREE.Group();
+                    group.add(plane);
+                    (group as any).isCustom = true;
 
-                fishRef.current.push({
-                    id: -(fishRef.current.length + 1),
-                    group,
-                    velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
-                    bob: Math.random() * Math.PI * 2,
+                    group.position.set(
+                        (Math.random() - 0.5) * tankDimensions.width * 0.5,
+                        (Math.random() - 0.5) * tankDimensions.height * 0.5,
+                        (Math.random() - 0.5) * tankDimensions.depth * 0.5
+                    );
+                    scene.add(group);
+
+                    fishRef.current.push({
+                        id: image.id,
+                        group,
+                        velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(1),
+                        bob: Math.random() * Math.PI * 2,
+                    });
                 });
             });
-        });
+        }
     }, [customFishImages, tankDimensions]);
 
     return <div ref={mountRef} className="absolute inset-0 z-0" />;

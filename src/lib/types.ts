@@ -27,3 +27,8 @@ export type GenerateFishBehaviorInput = {
     depth: number;
   };
 };
+
+export type CustomFish = {
+  id: string;
+  url: string;
+};
