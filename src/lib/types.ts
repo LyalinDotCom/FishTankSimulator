@@ -9,3 +9,12 @@ export type FishBehavior = {
 };
 
 export type GenerateFishBehaviorOutput = FishBehavior[];
+
+export type GenerateFishBehaviorInput = {
+  fishCount: number;
+  tankDimensions: {
+    width: number;
+    height: number;
+    depth: number;
+  };
+};

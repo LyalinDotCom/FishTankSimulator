@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { GenerateFishBehaviorOutput, FishBehavior } from '@/lib/types';
+import type { GenerateFishBehaviorOutput, FishBehavior, GenerateFishBehaviorInput } from '@/lib/types';
+import { generateFishBehavior } from '@/ai/flows/generate-fish-behavior';
+import { useToast } from "@/hooks/use-toast";
 
 import { Controls } from './controls';
 import { FishTank } from './fishtank';
@@ -32,6 +34,8 @@ export default function AquaVidaApp() {
     const [fishCount, setFishCount] = useState(15);
     const [behaviors, setBehaviors] = useState<GenerateFishBehaviorOutput>([]);
     const [customFishImages, setCustomFishImages] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
     useEffect(() => {
         setBehaviors(generateLocalBehaviors(fishCount, TANK_DIMENSIONS));
@@ -39,6 +43,35 @@ export default function AquaVidaApp() {
 
     const handleImageUpload = (dataUrl: string) => {
         setCustomFishImages(prev => [...prev, dataUrl]);
+    };
+    
+    const handleGenerate = async () => {
+        setIsLoading(true);
+        toast({
+            title: "Generating new fish...",
+            description: "The AI is creating new swimming patterns. Please wait.",
+        });
+        try {
+            const input: GenerateFishBehaviorInput = {
+                fishCount,
+                tankDimensions: TANK_DIMENSIONS,
+            };
+            const newBehaviors = await generateFishBehavior(input);
+            setBehaviors(newBehaviors);
+            toast({
+                title: "Success!",
+                description: "New AI-powered fish have been added to the tank.",
+            });
+        } catch (error) {
+            console.error("Failed to generate fish behavior:", error);
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: "There was a problem with the AI generation. Please check your API key and try again.",
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -50,6 +83,8 @@ export default function AquaVidaApp() {
                 fishCount={fishCount}
                 onFishCountChange={setFishCount}
                 onImageUpload={handleImageUpload}
+                onGenerate={handleGenerate}
+                isLoading={isLoading}
             />
             <FishTank 
                 behaviors={behaviors} 

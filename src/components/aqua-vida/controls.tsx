@@ -1,19 +1,23 @@
 'use client';
 
 import { useRef } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 
 interface ControlsProps {
     fishCount: number;
     onFishCountChange: (count: number) => void;
     onImageUpload: (dataUrl: string) => void;
+    onGenerate: () => void;
+    isLoading: boolean;
 }
 
-export function Controls({ fishCount, onFishCountChange, onImageUpload }: ControlsProps) {
+export function Controls({ fishCount, onFishCountChange, onImageUpload, onGenerate, isLoading }: ControlsProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleUploadClick = () => {
@@ -61,6 +65,14 @@ export function Controls({ fishCount, onFishCountChange, onImageUpload }: Contro
                         onChange={handleFileChange}
                         accept="image/png, image/jpeg, image/gif"
                     />
+                </div>
+                <Separator />
+                <div className="space-y-3">
+                    <Label>AI Generation</Label>
+                     <Button onClick={onGenerate} disabled={isLoading} className="w-full">
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Generate with AI
+                    </Button>
                 </div>
             </CardContent>
         </Card>
