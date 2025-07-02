@@ -120,7 +120,7 @@ export default function AquaVidaApp() {
         <div className="flex flex-col w-screen h-screen overflow-hidden bg-background">
             <Toaster />
             <h1 className="absolute top-4 left-1/2 -translate-x-1/2 text-3xl font-bold text-primary-foreground/80 font-headline z-10 select-none pointer-events-none">
-                AquaVida
+                Fish Tank Simulator
             </h1>
             <div className="relative flex-1">
                 <FishTank 

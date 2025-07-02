@@ -2,8 +2,8 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AquaVida',
-  description: 'A virtual fish tank with AI-powered fish behavior.',
+  title: 'Fish Tank Simulator',
+  description: 'A virtual fish tank simulator with AI-powered fish behavior.',
 };
 
 export default function RootLayout({
