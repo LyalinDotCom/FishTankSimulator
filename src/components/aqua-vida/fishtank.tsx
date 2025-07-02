@@ -240,31 +240,70 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                 position.needsUpdate = true;
             });
             
-            // Animate fish
             const halfW = tankDimensions.width / 2 - 0.5;
             const halfH = tankDimensions.height / 2 - 0.5;
             const halfD = tankDimensions.depth / 2 - 0.5;
             const currentCamera = cameraRef.current;
             
+            // Identify scary fish (AI-generated or custom uploads)
+            const scaryFish = fishRef.current.filter(f => (f.group as any).isCustom || (f.group as any).isAi);
+
             fishRef.current.forEach(fish => {
-                // Common physics for all fish
+                const isProcedural = (fish.group as any).isProcedural;
+                const isCustom = (fish.group as any).isCustom;
+                let isFleeing = false;
+
+                // 1. Calculate behavior (fleeing, random movement)
+                if (isProcedural) {
+                    if (scaryFish.length > 0) {
+                        const FEAR_DISTANCE = 4.0;
+                        const FLEE_STRENGTH = 1.5;
+                        let fleeVector = new THREE.Vector3();
+
+                        scaryFish.forEach(predator => {
+                            const distance = fish.group.position.distanceTo(predator.group.position);
+                            if (distance < FEAR_DISTANCE) {
+                                const direction = new THREE.Vector3().subVectors(fish.group.position, predator.group.position).normalize();
+                                fleeVector.add(direction);
+                            }
+                        });
+
+                        if (fleeVector.length() > 0) {
+                            fish.velocity.add(fleeVector.normalize().multiplyScalar(FLEE_STRENGTH));
+                            isFleeing = true;
+                        }
+                    }
+                    // Add gentle random movement if not fleeing
+                    if (!isFleeing) {
+                        fish.velocity.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.05));
+                    }
+                } else if (isCustom) {
+                    // Constrain velocity to be mostly horizontal for 2D fish
+                    fish.velocity.y *= 0.98; // Dampen vertical movement
+                    fish.velocity.z *= 0.98; // Dampen depth movement
+                    fish.velocity.x += (Math.random() - 0.5) * 0.1; // Add horizontal variation
+                } else { // AI fish (3D)
+                    fish.velocity.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.1));
+                }
+
+                // 2. Clamp velocity
+                if (isCustom) {
+                    fish.velocity.clampLength(1, 1.5);
+                } else {
+                    fish.velocity.clampLength(1, 2.5); // Fleeing fish can go faster
+                }
+                
+                // 3. Update position
                 fish.group.position.add(fish.velocity.clone().multiplyScalar(delta));
                 fish.group.position.y += Math.sin(elapsedTime * 2 + fish.bob) * 0.005;
 
-                // Common boundary checks
+                // 4. Boundary checks
                 if (fish.group.position.x > halfW || fish.group.position.x < -halfW) fish.velocity.x *= -1;
                 if (fish.group.position.y > halfH || fish.group.position.y < -halfH) fish.velocity.y *= -1;
                 if (fish.group.position.z > halfD || fish.group.position.z < -halfD) fish.velocity.z *= -1;
                 
-                if ((fish.group as any).isCustom && currentCamera) {
-                    // Logic for custom 2D fish
-                    
-                    // Constrain velocity to be mostly horizontal
-                    fish.velocity.y *= 0.98; // Dampen vertical movement
-                    fish.velocity.z *= 0.98; // Dampen depth movement
-                    fish.velocity.x += (Math.random() - 0.5) * 0.1; // Add horizontal variation
-                    fish.velocity.clampLength(1, 1.5);
-                    
+                // 5. Update orientation and visual animation
+                if (isCustom && currentCamera) {
                     // Make the fish's group face the camera
                     fish.group.lookAt(currentCamera.position);
 
@@ -289,11 +328,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
                              positions.needsUpdate = true;
                          }
                      }
-                } else {
-                    // Logic for AI-generated and procedural 3D fish
-                    fish.velocity.add(new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).multiplyScalar(0.1));
-                    fish.velocity.clampLength(1, 2);
-
+                } else if (!isCustom) { // Procedural and AI fish
                     // Rotate the 3D model to face its direction of movement
                     fish.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), fish.velocity.clone().normalize()), 0.1);
                 
