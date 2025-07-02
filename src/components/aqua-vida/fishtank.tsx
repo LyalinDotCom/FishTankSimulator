@@ -17,6 +17,11 @@ type PlantObject = {
     baseY: Float32Array;
 };
 
+type GroundObject = {
+    mesh: THREE.Mesh;
+    originalPositions: Float32Array;
+};
+
 interface FishTankProps {
     behaviors: GenerateFishBehaviorOutput;
     tankDimensions: { width: number; height: number; depth: number; };
@@ -107,6 +112,7 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const fishRef = useRef<FishObject[]>([]);
     const plantsRef = useRef<PlantObject[]>([]);
+    const groundRef = useRef<GroundObject | null>(null);
     
     useEffect(() => {
         const mount = mountRef.current;
@@ -160,13 +166,17 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
         scene.add(tankMesh);
 
         // Ground
-        const groundGeometry = new THREE.PlaneGeometry(tankDimensions.width, tankDimensions.depth);
-        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xF0F8FF, roughness: 0.8 });
+        const groundGeometry = new THREE.PlaneGeometry(tankDimensions.width, tankDimensions.depth, 50, 50);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xD2B48C, roughness: 0.9 });
         const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
         groundMesh.rotation.x = -Math.PI / 2;
         groundMesh.position.y = -tankDimensions.height / 2;
         groundMesh.receiveShadow = true;
         scene.add(groundMesh);
+        groundRef.current = {
+            mesh: groundMesh,
+            originalPositions: new Float32Array(groundGeometry.attributes.position.array),
+        };
 
         // Controls
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -202,6 +212,21 @@ export function FishTank({ behaviors, tankDimensions, customFishImages }: FishTa
             const elapsedTime = clock.getElapsedTime();
             
             controls.update();
+
+            // Animate ground to look like sand ripples
+            if (groundRef.current) {
+                const { mesh, originalPositions } = groundRef.current;
+                const position = mesh.geometry.attributes.position;
+                const time = elapsedTime * 0.4;
+                for (let i = 0; i < position.count; i++) {
+                    const x = originalPositions[i * 3];
+                    const y = originalPositions[i * 3 + 1];
+                    const ripple = (Math.sin(x * 0.2 + time) + Math.cos(y * 0.3 + time)) * 0.1;
+                    position.setZ(i, ripple);
+                }
+                position.needsUpdate = true;
+                mesh.geometry.computeVertexNormals();
+            }
             
             // Animate plants
             plantsRef.current.forEach(plantObj => {
